@@ -7,9 +7,10 @@ Architektur (aktives Polling):
   3. tachylog liest alle verfügbaren Bytes
   4. GSI-Zeilen werden geparst und in alle aktiven Ausgaben geschrieben
   5. Duplikat-Schutz: nur neue Messungen werden gespeichert
+  6. Optional: PID-Validierung gegen Schema (nur Warnungen, kein Abbruch)
 
 Das Instrument behält die volle Kontrolle:
-  - PID wird am TS07 eingegeben
+  - PID wird am TS07 eingegeben (freies Format)
   - Messung wird am TS07 ausgelöst
   - tachylog pollt und speichert automatisch
 
@@ -27,6 +28,7 @@ from typing import Optional
 from .connection import ConnectionConfig
 from .gsi_parser import parse_gsi_response, measurement_key
 from .output import OutputManager
+from .schema_validator import SchemaDef
 
 logger = logging.getLogger(__name__)
 
@@ -37,7 +39,7 @@ GEOCOM_GET_LAST_GSI = b"%R1Q,2115:\r\n"
 @dataclass
 class CollectorConfig:
     """Konfiguration für den Collector."""
-    poll_interval: float = 0.5
+    poll_interval: float = 0.2
     read_timeout: float = 1.0
     reconnect_delay: float = 3.0
 
@@ -82,15 +84,17 @@ def _extract_lines(text: str) -> list:
 def run_collector(
     conn_config: ConnectionConfig,
     db_path: Optional[str] = None,
-    poll_interval: float = 0.5,
+    poll_interval: float = 0.2,
     csv_path: Optional[str] = None,
     gsi_path: Optional[str] = None,
     geojson_path: Optional[str] = None,
+    schema: Optional[SchemaDef] = None,
 ):
     """
     Startet den Polling-Collector.
 
     Schreibt Messungen in alle aktiven Ausgabeformate.
+    Prüft PIDs optional gegen ein Schema (nur Warnungen).
     Läuft bis Ctrl+C.
     """
     if not any([db_path, csv_path, gsi_path, geojson_path]):
@@ -98,6 +102,9 @@ def run_collector(
             "Mindestens ein Ausgabeformat muss angegeben werden "
             "(--db, --csv, --gsi oder --geojson)"
         )
+
+    if schema is None:
+        schema = SchemaDef.free()
 
     use_tcp = conn_config.port.startswith("tcp://")
     if not use_tcp:
@@ -117,6 +124,8 @@ def run_collector(
 
     print(f"\n  tachylog — GSI Collector")
     print(f"  Port:  {conn_config.port}")
+    if schema.is_active():
+        print(f"  Schema: {schema.summary()}")
     for line in output.active_outputs():
         print(f"  {line}")
     print(f"\n  Bedienung: Alles am Instrument (TS07)")
@@ -189,6 +198,13 @@ def run_collector(
                     continue
 
                 last_key = key
+
+                # Schema-Validierung (nur Warnungen, kein Abbruch)
+                if schema.is_active():
+                    warnings = schema.validate(measurement.pid)
+                    for w in warnings:
+                        print(f"  [WARN] {w}")
+
                 output.write(measurement)
 
                 print(f"  [{output.count:4d}] {measurement.pid:<12}"
@@ -203,7 +219,7 @@ def run_collector(
         for line in output.active_outputs():
             print(f"  {line}")
         if db_path and output.count > 0:
-            print(f"\n  GeoPackage bauen: tachylog build {db_path} ausgabe.gpkg\n")
+            print(f"\n  Nächster Schritt: Export oder Weiterverarbeitung\n")
     finally:
         output.close()
         try:

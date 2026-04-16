@@ -1,0 +1,8 @@
+{
+  "name": "free",
+  "version": "1.0",
+  "description": "Kein Schema — freies PID-Format, keine Gültigkeitsprüfung. Default wenn kein --schema angegeben.",
+  "pid_format": null,
+  "pid_length": null,
+  "codes": []
+}

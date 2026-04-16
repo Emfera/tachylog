@@ -1,0 +1,33 @@
+{
+  "name": "ArchSurv4QGIS",
+  "version": "1.2",
+  "description": "Schema für ArchSurv4QGIS (AS4QGIS) QGIS-Plugin",
+  "pid_format": "XXXXYZZ001",
+  "pid_length": 10,
+  "codes": [
+    { "code": "01", "geometry": "point",   "label": "Heights" },
+    { "code": "02", "geometry": "line",    "label": "Polyline" },
+    { "code": "03", "geometry": "polygon", "label": "Polygon" },
+    { "code": "33", "geometry": "line",    "label": "Closed Polyline" },
+    { "code": "51", "geometry": "point",   "label": "Sample Point" },
+    { "code": "52", "geometry": "line",    "label": "Sample Polyline" },
+    { "code": "53", "geometry": "polygon", "label": "Sample Polygon" },
+    { "code": "61", "geometry": "polygon", "label": "Posthole (buffered)" },
+    { "code": "71", "geometry": "point",   "label": "Find Point" },
+    { "code": "72", "geometry": "line",    "label": "Find Polyline" },
+    { "code": "73", "geometry": "polygon", "label": "Find Polygon" },
+    { "code": "81", "geometry": "point",   "label": "3D Marker" },
+    { "code": "91", "geometry": "point",   "label": "Trench Fixed Point" },
+    { "code": "92", "geometry": "line",    "label": "Trench Polyline" },
+    { "code": "93", "geometry": "polygon", "label": "Trench Polygon" },
+    { "code": "00", "geometry": "point",   "label": "Section Nail" }
+  ],
+  "grouping": {
+    "key": ["feature_nr", "container", "shape_type"],
+    "sequence_field": "seq"
+  },
+  "export": {
+    "csv_columns": ["point_id", "code", "easting", "northing", "elevation"],
+    "filename_suffix": true
+  }
+}

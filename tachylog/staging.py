@@ -1,14 +1,17 @@
 """
-Staging-Datenbank für surveypipe.
+Staging-Datenbank für tachylog.
 
 Die Staging-DB ist append-only: Rohdaten werden NIEMALS überschrieben oder gelöscht.
 Jeder Messpunkt wird sofort nach Empfang gespeichert, ohne Interpretation.
-Die Interpretation (PID-Parsing, Feature-Erzeugung) passiert erst beim Build.
+
+PID ist ein opaker String — kein Format wird erzwungen oder validiert.
+Die Interpretation (PID-Parsing, Feature-Erzeugung) ist Aufgabe von Downstream-Tools
+(Gladiator_2, AS4QGIS, QGIS).
 
 Datenbank: SQLite (eine einzige .db Datei)
 Schema:
   staging_points  — alle gesammelten Messpunkte
-  build_runs      — Protokoll aller Build-Läufe
+  build_runs      — Protokoll aller Build-Läufe (Export-History)
 """
 
 import sqlite3
@@ -25,23 +28,22 @@ from typing import Optional
 @dataclass
 class StagingPoint:
     """Ein einzelner Messpunkt im Staging."""
-    pid: str           # Punkt-ID, z.B. "FP00010001"
+    pid: str           # Punkt-ID, opaker String (z.B. "OT00010001", "FP0001", "LE01")
     x: float           # Rechtswert / Easting
     y: float           # Hochwert / Northing
     z: float           # Höhe / Elevation
-    source: str        # "geocom" oder "gnss"
+    source: str        # "geocom_gsi" (TS07) oder "gnss" (Emlid Reach)
     timestamp: float = field(default_factory=time.time)
-    id: Optional[int] = None  # Auto-increment, wird von DB gesetzt
+    id: Optional[int] = None
 
     def __post_init__(self):
-        self.pid = self.pid.strip().upper()
-        if len(self.pid) > 10:
-            raise ValueError(f"PID zu lang: '{self.pid}' (max 10 Zeichen)")
+        self.pid = self.pid.strip()
+        # Keine Längen- oder Format-Validierung — PID ist frei
 
 
 @dataclass
 class BuildRun:
-    """Protokoll eines Build-Laufs."""
+    """Protokoll eines Export-Laufs."""
     timestamp: float
     points_in: int
     features_out: int
@@ -59,8 +61,8 @@ class StagingDB:
     Verwaltet die Staging-Datenbank.
 
     Verwendung:
-        db = StagingDB("staging.db")
-        db.add_point(StagingPoint(pid="FP00010001", x=500000.0, y=160000.0, z=400.0, source="geocom"))
+        db = StagingDB("aufnahme.db")
+        db.add_point(StagingPoint(pid="OT00010001", x=500000.0, y=160000.0, z=400.0, source="geocom_gsi"))
         punkte = db.get_all_points()
     """
 
@@ -79,11 +81,11 @@ class StagingDB:
                 x         REAL    NOT NULL,
                 y         REAL    NOT NULL,
                 z         REAL    NOT NULL,
-                source    TEXT    NOT NULL DEFAULT 'geocom',
+                source    TEXT    NOT NULL DEFAULT 'geocom_gsi',
                 timestamp REAL    NOT NULL
             );
 
-            CREATE INDEX IF NOT EXISTS idx_staging_pid ON staging_points(pid);
+            CREATE INDEX IF NOT EXISTS idx_staging_pid    ON staging_points(pid);
             CREATE INDEX IF NOT EXISTS idx_staging_source ON staging_points(source);
 
             CREATE TABLE IF NOT EXISTS build_runs (
@@ -100,7 +102,7 @@ class StagingDB:
     def add_point(self, pt: StagingPoint) -> int:
         """
         Fügt einen Messpunkt hinzu. Gibt die neue ID zurück.
-        Diese Operation ist immer append-only — niemals update oder delete.
+        Append-only — niemals update oder delete.
         """
         cur = self._conn.execute(
             "INSERT INTO staging_points (pid, x, y, z, source, timestamp) VALUES (?,?,?,?,?,?)",
@@ -124,11 +126,11 @@ class StagingDB:
         """Gibt Statistiken zur Staging-DB zurück."""
         row = self._conn.execute("""
             SELECT
-                COUNT(*)                                    AS total,
-                SUM(CASE WHEN source='geocom' THEN 1 END)  AS geocom,
-                SUM(CASE WHEN source='gnss'   THEN 1 END)  AS gnss,
-                MIN(timestamp)                              AS first_ts,
-                MAX(timestamp)                              AS last_ts
+                COUNT(*)                                          AS total,
+                SUM(CASE WHEN source='geocom_gsi' THEN 1 END)    AS geocom,
+                SUM(CASE WHEN source='gnss'       THEN 1 END)    AS gnss,
+                MIN(timestamp)                                    AS first_ts,
+                MAX(timestamp)                                    AS last_ts
             FROM staging_points
         """).fetchone()
 
@@ -142,7 +144,7 @@ class StagingDB:
         }
 
     def add_build_run(self, run: BuildRun) -> int:
-        """Speichert einen Build-Lauf ins Protokoll."""
+        """Speichert einen Export-Lauf ins Protokoll."""
         cur = self._conn.execute(
             "INSERT INTO build_runs (timestamp, points_in, features_out, errors, output_path) VALUES (?,?,?,?,?)",
             (run.timestamp, run.points_in, run.features_out, run.errors, run.output_path)
@@ -151,7 +153,7 @@ class StagingDB:
         return cur.lastrowid
 
     def get_build_runs(self) -> list[BuildRun]:
-        """Gibt alle Build-Läufe zurück."""
+        """Gibt alle Export-Läufe zurück."""
         rows = self._conn.execute(
             "SELECT * FROM build_runs ORDER BY timestamp DESC"
         ).fetchall()

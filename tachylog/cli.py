@@ -4,24 +4,22 @@ tachylog CLI
 Befehle:
   tachylog collect  --port tcp://localhost:4444 --db feld.db
   tachylog collect  --port tcp://localhost:4444 --csv feld.csv --gsi feld.gsi
-  tachylog collect  --port tcp://localhost:4444 --db feld.db --csv feld.csv --gsi feld.gsi --geojson feld.geojson
+  tachylog collect  --port tcp://localhost:4444 --db feld.db --schema schemas/gladiator2.json
   tachylog import   punkte.csv --db feld.db
-  tachylog build    feld.db ausgabe.gpkg
   tachylog info     feld.db
-  tachylog validate feld.db
-  tachylog codes
+  tachylog validate feld.db --schema schemas/gladiator2.json
+  tachylog schemas
 """
 
 import click
 import logging
+from pathlib import Path
 
 from .connection import ConnectionConfig
-from .collector import run_collector, CollectorConfig
+from .collector import run_collector
 from .csv_collector import import_csv
-from .feature_builder import build_geopackage
 from .staging import StagingDB
-from .code_table import CODE_TABLE
-from .pid_parser import validate_pid_sequence
+from .schema_validator import SchemaDef
 
 
 @click.group()
@@ -43,14 +41,16 @@ def cli(verbose):
 @click.option("--db", default=None,
               help="SQLite-Datenbank (z.B. aufnahme.db)")
 @click.option("--csv", "csv_path", default=None,
-              help="CSV-Ausgabe, Emlid Flow kompatibel (z.B. aufnahme.csv)")
+              help="CSV-Ausgabe (z.B. aufnahme.csv)")
 @click.option("--gsi", "gsi_path", default=None,
-              help="GSI-Rohausgabe, exakt wie vom Instrument (z.B. aufnahme.gsi)")
+              help="GSI-Rohausgabe (z.B. aufnahme.gsi)")
 @click.option("--geojson", "geojson_path", default=None,
-              help="GeoJSON-Ausgabe für QGIS/Web (z.B. aufnahme.geojson)")
-@click.option("--interval", default=0.5, show_default=True,
-              help="Polling-Intervall in Sekunden")
-def collect(port, db, csv_path, gsi_path, geojson_path, interval):
+              help="GeoJSON-Ausgabe (z.B. aufnahme.geojson)")
+@click.option("--schema", "schema_path", default=None,
+              help="Optionales Schema für Gültigkeitsprüfung (z.B. schemas/gladiator2.json)")
+@click.option("--interval", default=0.2, show_default=True,
+              help="Polling-Intervall in Sekunden (Default: 0.2 = 5 Hz)")
+def collect(port, db, csv_path, gsi_path, geojson_path, schema_path, interval):
     """Empfängt Messungen vom TS07 und speichert in gewählten Formaten.
 
     Mindestens ein Ausgabeformat muss angegeben werden.
@@ -62,12 +62,22 @@ def collect(port, db, csv_path, gsi_path, geojson_path, interval):
 
       tachylog collect --csv aufnahme.csv --gsi aufnahme.gsi
 
-      tachylog collect --db aufnahme.db --csv aufnahme.csv --geojson aufnahme.geojson
+      tachylog collect --db aufnahme.db --schema schemas/gladiator2.json
     """
-    # Wenn nichts angegeben: Standard ist SQLite
     if not any([db, csv_path, gsi_path, geojson_path]):
         db = "tachylog.db"
         click.echo(f"  Kein Ausgabeformat angegeben — verwende Standard: {db}")
+
+    # Schema laden
+    if schema_path:
+        try:
+            schema = SchemaDef.load(schema_path)
+            click.echo(f"  Schema: {schema.summary()}")
+        except (FileNotFoundError, KeyError, ValueError) as e:
+            click.echo(f"  [WARN] Schema konnte nicht geladen werden: {e} — fahre ohne Schema fort")
+            schema = SchemaDef.free()
+    else:
+        schema = SchemaDef.free()
 
     conn_config = ConnectionConfig(port=port, timeout=0.5)
     run_collector(
@@ -77,6 +87,7 @@ def collect(port, db, csv_path, gsi_path, geojson_path, interval):
         csv_path=csv_path,
         gsi_path=gsi_path,
         geojson_path=geojson_path,
+        schema=schema,
     )
 
 
@@ -90,29 +101,12 @@ def collect(port, db, csv_path, gsi_path, geojson_path, interval):
               help="CSV-Trennzeichen")
 def import_cmd(csv_file, db, delimiter):
     """Importiert eine GNSS-CSV-Datei in die Staging-Datenbank."""
-    count = import_csv(csv_file, db, delimiter=delimiter)
-    click.echo(f"✓ {count} Punkte importiert aus '{csv_file}'")
-
-
-# ── build ─────────────────────────────────────────────────────────────────────
-
-@cli.command()
-@click.argument("db_file", type=click.Path(exists=True))
-@click.argument("output", default="ausgabe.gpkg")
-@click.option("--crs", default=4326, show_default=True,
-              help="Koordinatenreferenzsystem (EPSG-Code)")
-def build(db_file, output, crs):
-    """Baut ein GeoPackage (.gpkg) aus der Staging-Datenbank."""
-    db = StagingDB(db_file)
-    points = db.get_all_points()
-    if not points:
-        click.echo("✗ Keine Punkte in der Datenbank.")
-        return
-    result = build_geopackage(points, output, crs=crs)
-    click.echo(f"✓ GeoPackage erstellt: {output}")
-    click.echo(f"  Punkte:   {result.get('points', 0)}")
-    click.echo(f"  Linien:   {result.get('lines', 0)}")
-    click.echo(f"  Flächen:  {result.get('polygons', 0)}")
+    staging = StagingDB(db)
+    result = import_csv(staging, csv_file, delimiter=delimiter)
+    click.echo(f"✓ {result['imported']} Punkte importiert aus '{csv_file}'")
+    if result.get("errors"):
+        for e in result["errors"][:5]:
+            click.echo(f"  [WARN] {e}")
 
 
 # ── info ──────────────────────────────────────────────────────────────────────
@@ -122,19 +116,12 @@ def build(db_file, output, crs):
 def info(db_file):
     """Zeigt Statistiken über die Staging-Datenbank."""
     db = StagingDB(db_file)
-    points = db.get_all_points()
-    if not points:
-        click.echo("Keine Punkte in der Datenbank.")
-        return
-
-    from collections import Counter
-    sources = Counter(p.source for p in points)
+    stats = db.get_stats()
 
     click.echo(f"\n  Datenbank: {db_file}")
-    click.echo(f"  Punkte gesamt: {len(points)}\n")
-    click.echo("  Nach Quelle:")
-    for source, count in sorted(sources.items()):
-        click.echo(f"    {source:<20} {count}")
+    click.echo(f"  Punkte gesamt: {stats['total']}")
+    click.echo(f"    TS07 (geocom): {stats.get('geocom', 0)}")
+    click.echo(f"    GNSS (gnss):   {stats.get('gnss', 0)}")
     click.echo()
 
 
@@ -142,31 +129,69 @@ def info(db_file):
 
 @cli.command()
 @click.argument("db_file", type=click.Path(exists=True))
-def validate(db_file):
-    """Prüft PID-Sequenzen auf Lücken oder Fehler."""
+@click.option("--schema", "schema_path", required=True,
+              help="Schema-Datei für die Prüfung (z.B. schemas/gladiator2.json)")
+def validate(db_file, schema_path):
+    """Prüft alle PIDs in der Datenbank gegen ein Schema.
+
+    Nützlich als Post-hoc-Check vor dem Export.
+
+    Beispiel:
+
+      tachylog validate aufnahme.db --schema schemas/gladiator2.json
+    """
+    try:
+        schema = SchemaDef.load(schema_path)
+    except (FileNotFoundError, KeyError, ValueError) as e:
+        click.echo(f"✗ Schema konnte nicht geladen werden: {e}")
+        return
+
     db = StagingDB(db_file)
     points = db.get_all_points()
-    pids = [p.pid for p in points]
-    issues = validate_pid_sequence(pids)
+
+    if not points:
+        click.echo("Keine Punkte in der Datenbank.")
+        return
+
+    click.echo(f"\n  Schema: {schema.summary()}")
+    click.echo(f"  Punkte: {len(points)}\n")
+
+    issues: list[tuple] = []
+    for pt in points:
+        warnings = schema.validate(pt.pid)
+        for w in warnings:
+            issues.append((pt.pid, w))
+
     if not issues:
-        click.echo("✓ Alle PID-Sequenzen vollständig.")
+        click.echo(f"  ✓ Alle {len(points)} PIDs entsprechen dem Schema '{schema.name}'.")
     else:
-        click.echo(f"✗ {len(issues)} Problem(e) gefunden:\n")
-        for issue in issues:
-            click.echo(f"  • {issue}")
+        click.echo(f"  ✗ {len(issues)} Warnung(en) gefunden:\n")
+        shown = set()
+        for pid, msg in issues:
+            if msg not in shown:
+                click.echo(f"    • {msg}")
+                shown.add(msg)
+        click.echo()
 
 
-# ── codes ─────────────────────────────────────────────────────────────────────
+# ── schemas ───────────────────────────────────────────────────────────────────
 
-@cli.command()
-def codes():
-    """Zeigt alle verfügbaren Vermessungs-Codes."""
-    click.echo("\n  Code  Typ       Deutsch              Englisch")
-    click.echo("  " + "─" * 55)
-    for code, info in sorted(CODE_TABLE.items()):
-        geom = info.get("geometry", "?")
-        name_de = info.get("name_de", "")
-        name_en = info.get("name_en", "")
-        geom_sym = {"point": "Punkt  ", "line": "Linie  ", "polygon": "Fläche "}.get(geom, "?      ")
-        click.echo(f"  {code}    {geom_sym}  {name_de:<20} {name_en}")
+@cli.command("schemas")
+def list_schemas():
+    """Zeigt alle verfügbaren Schema-Dateien."""
+    schema_dir = Path(__file__).parent / "schemas"
+    files = sorted(schema_dir.glob("*.json"))
+
+    if not files:
+        click.echo("Keine Schema-Dateien gefunden.")
+        return
+
+    click.echo(f"\n  Verfügbare Schemata ({schema_dir}):\n")
+    for f in files:
+        try:
+            s = SchemaDef.load(f)
+            marker = "  →" if s.name != "free" else "  ·"
+            click.echo(f"{marker} {f.name:<25} {s.summary()}")
+        except Exception as e:
+            click.echo(f"  ✗ {f.name}: {e}")
     click.echo()

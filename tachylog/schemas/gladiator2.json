@@ -1,0 +1,33 @@
+{
+  "name": "Gladiator_2",
+  "version": "1.0",
+  "description": "Schema für Gladiator_2 QGIS-Plugin (archäologische Ausgrabungsdokumentation)",
+  "pid_format": "CCSSSSNNNN",
+  "pid_length": 10,
+  "codes": [
+    { "code": "OT", "geometry": "polygon", "label": "Outline Top" },
+    { "code": "OB", "geometry": "polygon", "label": "Outline Bottom" },
+    { "code": "ST", "geometry": "point",   "label": "Surface Top" },
+    { "code": "SB", "geometry": "point",   "label": "Surface Bottom" },
+    { "code": "BL", "geometry": "line",    "label": "Break Line" },
+    { "code": "LE", "geometry": "polygon", "label": "Limits Excavation" },
+    { "code": "HP", "geometry": "point",   "label": "Survey Point" },
+    { "code": "CP", "geometry": "point",   "label": "Control Point" },
+    { "code": "CL", "geometry": "line",    "label": "Crosssection Line" },
+    { "code": "PP", "geometry": "point",   "label": "Photogrammetric Point" },
+    { "code": "PD", "geometry": "point",   "label": "Photogrammetric Detail Point" },
+    { "code": "DL", "geometry": "line",    "label": "Diverse Line" },
+    { "code": "RP", "geometry": "point",   "label": "Reference Point" },
+    { "code": "TP", "geometry": "point",   "label": "Temporary Point" },
+    { "code": "FP", "geometry": "point",   "label": "Find Point" },
+    { "code": "PS", "geometry": "point",   "label": "Point Sample" }
+  ],
+  "grouping": {
+    "key": ["code", "se_id"],
+    "sequence_field": "seq"
+  },
+  "export": {
+    "csv_columns": ["point_id", "code", "easting", "northing", "elevation"],
+    "filename_suffix": true
+  }
+}
