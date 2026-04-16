@@ -173,11 +173,11 @@ def parse_gsi_response(response: str) -> Optional[GSIMeasurement]:
     if not pid:
         return None
 
-    # Koordinaten: Maske 1 = 21/22/31, andere Masken = 81/82/83
-    # Probiere beide Varianten, Maske 1 hat Vorrang
-    e_raw = words.get(21) or words.get(81)
-    n_raw = words.get(22) or words.get(82)
-    h_raw = words.get(31) or words.get(83)
+    # Koordinaten: Maske 2 = 81/82/83 (Ost/Nord/Höhe — bevorzugt)
+    # Maske 1 liefert auf 21/22/31 Winkel/Distanz, NICHT Koordinaten
+    e_raw = words.get(81) or words.get(21)
+    n_raw = words.get(82) or words.get(22)
+    h_raw = words.get(83) or words.get(31)
 
     if None in (e_raw, n_raw, h_raw):
         return None
