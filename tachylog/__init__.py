@@ -10,5 +10,5 @@ Unterstützt:
 - GNSS CSV-Import (Emlid Flow kompatibel)
 """
 
-__version__ = "1.0.0"
+__version__ = "1.1.0"
 __author__ = "Martin Fera <martin.fera@univie.ac.at>"

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "tachylog"
-version = "1.0.0"
+version = "1.1.0"
 description = "GSI-Datenlogger für Leica Flexline Totalstationen — freies PID-Format, optionale Schema-Validierung, CSV/SQLite/GSI/GeoJSON"
 authors = [{name = "Martin Fera", email = "martin.fera@univie.ac.at"}]
 readme = "README.md"
