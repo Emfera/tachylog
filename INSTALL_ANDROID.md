@@ -79,6 +79,40 @@ Daten → Ausgabe → Interface
 
 ---
 
+## 6. Home-Screen-Button (Termux:Widget)
+
+Einmalig nach der Installation:
+
+```bash
+# Termux:Widget aus F-Droid installieren (App, nicht Terminal-Befehl)
+# Dann in Termux:
+bash ~/tachylog/setup-widget.sh
+```
+
+Das Skript:
+- legt `~/.shortcuts/` mit den richtigen Permissions an
+- kopiert `tachylog.sh` dorthin
+- bietet an, den Pinned-Shortcut-Dialog direkt zu öffnen
+
+**Widget auf Home-Screen ziehen:**
+Home-Screen lang drücken → Widgets → Termux:Widget → `tachylog.sh` auswählen
+
+**Direkter Icon-Button** (empfohlen):
+Home-Screen lang drücken → Widgets → Termux:Shortcut → `tachylog.sh` auswählen
+
+Ein Tipp auf den Button startet den gesamten Stack:
+tachyflow startet im Hintergrund, Browser öffnet sich auf `http://localhost:5000`,
+tachylog läuft im Terminal und sammelt Messungen.
+
+**Konfiguration** (oben in `~/.shortcuts/tachylog.sh` anpassen):
+```bash
+AUFNAHME="grabung_2026"      # Fixer Dateiname statt Datum
+SCHEMA="gladiator2"          # Schema für PID-Validierung
+EPSG="31256"                 # Koordinatensystem
+```
+
+---
+
 ## Feldstart (täglich)
 
 ```bash

@@ -24,6 +24,15 @@
 
 set -euo pipefail
 
+# ── Widget-Modus ─────────────────────────────────────────────────────────────
+# --widget: kein read, kein clear, termux-toast statt interaktiver Ausgabe.
+WIDGET_MODE=0
+ARGS=()
+for arg in "$@"; do
+    [[ "$arg" == "--widget" ]] && WIDGET_MODE=1 || ARGS+=("$arg")
+done
+set -- "${ARGS[@]+"${ARGS[@]}"}"
+
 # ── Konfiguration ─────────────────────────────────────────────────────────────
 
 TACHYFLOW_DIR="${TACHYFLOW_DIR:-$HOME/tachyflow}"
@@ -46,6 +55,13 @@ ok()     { echo -e "  ${G}✓${N}  $*"; }
 warn()   { echo -e "  ${Y}⚠${N}  $*"; }
 err()    { echo -e "  ${R}✗${N}  $*"; }
 info()   { echo -e "     $*"; }
+toast()  {
+    if [[ $WIDGET_MODE -eq 1 ]] && command -v termux-toast &>/dev/null; then
+        termux-toast -s "$*"
+    else
+        echo -e "  ★  $*"
+    fi
+}
 
 # ── Aufräumen beim Beenden ────────────────────────────────────────────────────
 
@@ -68,7 +84,7 @@ trap cleanup EXIT INT TERM
 
 # ── Header ────────────────────────────────────────────────────────────────────
 
-clear
+[[ $WIDGET_MODE -eq 0 ]] && clear
 echo ""
 echo -e "  ${BOLD}╔══════════════════════════════════════╗${N}"
 echo -e "  ${BOLD}║        tachylog  Feldstart           ║${N}"
@@ -124,19 +140,23 @@ echo ""
 warn "BT/TCP Bridge prüfen:"
 info "→ Ist die App gestartet und mit dem TS07 verbunden?"
 info "→ Ist der TCP-Server auf localhost:4444 aktiv?"
-echo ""
-echo -ne "  Weiter mit Enter (oder Ctrl+C zum Abbrechen)... "
-read -r
+if [[ $WIDGET_MODE -eq 0 ]]; then
+    echo ""
+    echo -ne "  Weiter mit Enter (oder Ctrl+C zum Abbrechen)... "
+    read -r
+fi
 
 # Verbindung testen
 if command -v nc &>/dev/null; then
     if nc -z localhost 4444 2>/dev/null; then
         ok "Verbindung zu localhost:4444 OK"
     else
-        warn "localhost:4444 nicht erreichbar — trotzdem fortfahren?"
-        info "(tachylog versucht automatisch zu verbinden)"
-        echo -ne "  Weiter mit Enter... "
-        read -r
+        warn "localhost:4444 nicht erreichbar — tachylog verbindet automatisch"
+        toast "⚠ Port 4444 nicht erreichbar — tachylog versucht Verbindung"
+        if [[ $WIDGET_MODE -eq 0 ]]; then
+            echo -ne "  Weiter mit Enter... "
+            read -r
+        fi
     fi
 fi
 
@@ -170,6 +190,11 @@ for i in $(seq 1 20); do
     if kill -0 "$FLOW_PID" 2>/dev/null && \
        (echo > /dev/tcp/localhost/$FLOW_PORT) 2>/dev/null; then
         ok "tachyflow läuft auf http://localhost:$FLOW_PORT"
+        if [[ $WIDGET_MODE -eq 1 ]]; then
+            am start -a android.intent.action.VIEW \
+                -d "http://localhost:$FLOW_PORT" 2>/dev/null || true
+            toast "tachylog gestartet — Browser geöffnet"
+        fi
         break
     fi
     if ! kill -0 "$FLOW_PID" 2>/dev/null; then
