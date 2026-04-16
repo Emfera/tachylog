@@ -27,5 +27,7 @@ if [[ ! -f "$START_SCRIPT" ]]; then
 fi
 
 # ── Starten ───────────────────────────────────────────────────────────────────
-# --widget: überspringt interaktive Prompts, öffnet Browser automatisch
-exec bash "$START_SCRIPT" "$AUFNAHME" "$SCHEMA" "$EPSG" --widget
+# --widget:     überspringt interaktive Prompts, öffnet Browser automatisch
+# --flow-only:  startet nur tachyflow, kein tachylog (empfohlen — BT/TCP Bridge
+#               erlaubt nur eine Verbindung gleichzeitig)
+exec bash "$START_SCRIPT" "$AUFNAHME" "$SCHEMA" "$EPSG" --widget --flow-only

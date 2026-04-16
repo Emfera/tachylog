@@ -27,9 +27,12 @@ set -euo pipefail
 # ── Widget-Modus ─────────────────────────────────────────────────────────────
 # --widget: kein read, kein clear, termux-toast statt interaktiver Ausgabe.
 WIDGET_MODE=0
+FLOW_ONLY=0
 ARGS=()
 for arg in "$@"; do
-    [[ "$arg" == "--widget" ]] && WIDGET_MODE=1 || ARGS+=("$arg")
+    [[ "$arg" == "--widget" ]]    && WIDGET_MODE=1
+    [[ "$arg" == "--flow-only" ]] && FLOW_ONLY=1
+    [[ "$arg" != "--widget" && "$arg" != "--flow-only" ]] && ARGS+=("$arg")
 done
 set -- "${ARGS[@]+"${ARGS[@]}"}"
 
@@ -208,23 +211,32 @@ done
 
 info "Browser öffnen:  http://localhost:$FLOW_PORT"
 
-# ── tachylog starten ──────────────────────────────────────────────────────────
+# ── tachylog starten (optional) ─────────────────────────────────────────────
 
-banner "Starte tachylog..."
-echo ""
-echo -e "  ${BOLD}Ausgabedateien:${N}"
-info "SQLite  →  $DATA_DIR/$AUFNAHME.db"
-info "CSV     →  $DATA_DIR/$AUFNAHME.csv"
-info "GeoJSON →  $DATA_DIR/$AUFNAHME.geojson"
-echo ""
-echo -e "  ${Y}Beenden: Ctrl+C${N}"
-echo ""
-
-# tachylog läuft im Vordergrund (Ctrl+C beendet alles via trap)
-tachylog collect \
-    --port "$BRIDGE_PORT" \
-    --db      "$DATA_DIR/$AUFNAHME.db" \
-    --csv     "$DATA_DIR/$AUFNAHME.csv" \
-    --geojson "$DATA_DIR/$AUFNAHME.geojson" \
-    --epsg    "$EPSG" \
-    ${SCHEMA_OPT}
+if [[ $FLOW_ONLY -eq 1 ]]; then
+    banner "Nur tachyflow — warte auf Ctrl+C"
+    echo ""
+    info "tachylog läuft nicht — Verbindung gehört tachyflow."
+    echo -e "  ${Y}Beenden: Ctrl+C${N}"
+    echo ""
+    # Vordergrund blockieren bis Ctrl+C
+    while kill -0 "$FLOW_PID" 2>/dev/null; do sleep 2; done
+else
+    banner "Starte tachylog..."
+    echo ""
+    echo -e "  ${BOLD}Ausgabedateien:${N}"
+    info "SQLite  →  $DATA_DIR/$AUFNAHME.db"
+    info "CSV     →  $DATA_DIR/$AUFNAHME.csv"
+    info "GeoJSON →  $DATA_DIR/$AUFNAHME.geojson"
+    echo ""
+    echo -e "  ${Y}Beenden: Ctrl+C${N}"
+    echo ""
+    # tachylog läuft im Vordergrund (Ctrl+C beendet alles via trap)
+    tachylog collect \
+        --port "$BRIDGE_PORT" \
+        --db      "$DATA_DIR/$AUFNAHME.db" \
+        --csv     "$DATA_DIR/$AUFNAHME.csv" \
+        --geojson "$DATA_DIR/$AUFNAHME.geojson" \
+        --epsg    "$EPSG" \
+        ${SCHEMA_OPT}
+fi
