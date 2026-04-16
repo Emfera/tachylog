@@ -49,11 +49,13 @@ class OutputManager:
         csv_path: Optional[str] = None,
         gsi_path: Optional[str] = None,
         geojson_path: Optional[str] = None,
+        epsg_code: int = 31256,
     ):
         self.db_path = db
         self.csv_path = csv_path
         self.gsi_path = gsi_path
         self.geojson_path = geojson_path
+        self.epsg_code = epsg_code
 
         # Interne Handles (werden in open() gesetzt)
         self._db: Optional[StagingDB] = None
@@ -159,6 +161,12 @@ class OutputManager:
         if self.geojson_path and self._geojson_features is not None:
             collection = {
                 "type": "FeatureCollection",
+                "crs": {
+                    "type": "name",
+                    "properties": {
+                        "name": f"urn:ogc:def:crs:EPSG::{self.epsg_code}"
+                    },
+                },
                 "features": self._geojson_features,
             }
             with open(self.geojson_path, "w", encoding="utf-8") as f:

@@ -50,7 +50,10 @@ def cli(verbose):
               help="Optionales Schema für Gültigkeitsprüfung (z.B. schemas/gladiator2.json)")
 @click.option("--interval", default=0.2, show_default=True,
               help="Polling-Intervall in Sekunden (Default: 0.2 = 5 Hz)")
-def collect(port, db, csv_path, gsi_path, geojson_path, schema_path, interval):
+@click.option("--epsg", "epsg_code", default=31256, show_default=True,
+              help="EPSG-Code des Koordinatensystems (Metadaten, keine Transformation). "
+                   "AT: 31256=M31 (Standard), 31255=M28, 31257=M34")
+def collect(port, db, csv_path, gsi_path, geojson_path, schema_path, interval, epsg_code):
     """Empfängt Messungen vom TS07 und speichert in gewählten Formaten.
 
     Mindestens ein Ausgabeformat muss angegeben werden.
@@ -88,6 +91,7 @@ def collect(port, db, csv_path, gsi_path, geojson_path, schema_path, interval):
         gsi_path=gsi_path,
         geojson_path=geojson_path,
         schema=schema,
+        epsg_code=epsg_code,
     )
 
 

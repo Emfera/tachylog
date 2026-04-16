@@ -89,6 +89,7 @@ def run_collector(
     gsi_path: Optional[str] = None,
     geojson_path: Optional[str] = None,
     schema: Optional[SchemaDef] = None,
+    epsg_code: int = 31256,
 ):
     """
     Startet den Polling-Collector.
@@ -119,6 +120,7 @@ def run_collector(
         csv_path=csv_path,
         gsi_path=gsi_path,
         geojson_path=geojson_path,
+        epsg_code=epsg_code,
     )
     output.open()
 

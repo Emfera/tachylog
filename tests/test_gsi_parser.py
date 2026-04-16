@@ -30,13 +30,15 @@ class TestGsiToPid:
 
 class TestParseGsiResponse:
     def test_valid_response(self):
-        raw = "%R1P,0,0:0,110001+00FP00010001 81..00+00123456 82..00+00654321 83..00+00001234"
+        # GSI16, Unit 06 (0.1mm): Wert / 10000 = Meter
+        # 11112846 / 10000 = 1111.2846
+        raw = "%R1P,0,0:0,110001+00FP00010001 81..06+00011112846 82..06+00007350902 83..06+00000054191"
         m = parse_gsi_response(raw)
         assert m is not None
         assert m.pid == "FP00010001"
-        assert m.e == pytest.approx(123.456)
-        assert m.n == pytest.approx(654.321)
-        assert m.h == pytest.approx(1.234)
+        assert m.e == pytest.approx(1111.2846)
+        assert m.n == pytest.approx(735.0902)
+        assert m.h == pytest.approx(5.4191)
 
     def test_none_on_empty(self):
         assert parse_gsi_response("") is None
