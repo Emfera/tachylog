@@ -11,7 +11,6 @@ Die Interpretation (PID-Parsing, Feature-Erzeugung) ist Aufgabe von Downstream-T
 Datenbank: SQLite (eine einzige .db Datei)
 Schema:
   staging_points  — alle gesammelten Messpunkte
-  build_runs      — Protokoll aller Build-Läufe (Export-History)
 """
 
 import sqlite3
@@ -39,17 +38,6 @@ class StagingPoint:
     def __post_init__(self):
         self.pid = self.pid.strip()
         # Keine Längen- oder Format-Validierung — PID ist frei
-
-
-@dataclass
-class BuildRun:
-    """Protokoll eines Export-Laufs."""
-    timestamp: float
-    points_in: int
-    features_out: int
-    errors: int
-    output_path: str
-    id: Optional[int] = None
 
 
 # ─────────────────────────────────────────────
@@ -87,15 +75,6 @@ class StagingDB:
 
             CREATE INDEX IF NOT EXISTS idx_staging_pid    ON staging_points(pid);
             CREATE INDEX IF NOT EXISTS idx_staging_source ON staging_points(source);
-
-            CREATE TABLE IF NOT EXISTS build_runs (
-                id           INTEGER PRIMARY KEY AUTOINCREMENT,
-                timestamp    REAL    NOT NULL,
-                points_in    INTEGER NOT NULL DEFAULT 0,
-                features_out INTEGER NOT NULL DEFAULT 0,
-                errors       INTEGER NOT NULL DEFAULT 0,
-                output_path  TEXT    NOT NULL DEFAULT ''
-            );
         """)
         self._conn.commit()
 
@@ -142,26 +121,6 @@ class StagingDB:
             "last":    row["last_ts"],
             "db_path": str(self.db_path),
         }
-
-    def add_build_run(self, run: BuildRun) -> int:
-        """Speichert einen Export-Lauf ins Protokoll."""
-        cur = self._conn.execute(
-            "INSERT INTO build_runs (timestamp, points_in, features_out, errors, output_path) VALUES (?,?,?,?,?)",
-            (run.timestamp, run.points_in, run.features_out, run.errors, run.output_path)
-        )
-        self._conn.commit()
-        return cur.lastrowid
-
-    def get_build_runs(self) -> list[BuildRun]:
-        """Gibt alle Export-Läufe zurück."""
-        rows = self._conn.execute(
-            "SELECT * FROM build_runs ORDER BY timestamp DESC"
-        ).fetchall()
-        return [BuildRun(
-            id=r["id"], timestamp=r["timestamp"],
-            points_in=r["points_in"], features_out=r["features_out"],
-            errors=r["errors"], output_path=r["output_path"]
-        ) for r in rows]
 
     def close(self):
         self._conn.close()

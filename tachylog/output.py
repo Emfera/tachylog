@@ -7,7 +7,6 @@ Schreibt Messungen gleichzeitig in alle aktiven Ausgabeformate:
   CSV      — kompatibel mit QGIS, Excel, Emlid Flow, eigenen Skripten
   GSI      — Rohformat exakt wie vom Instrument gesendet
   GeoJSON  — für Web-GIS, QGIS, jede moderne GIS-Software
-  GeoPackage — moderner Shapefile-Ersatz (via build-Befehl)
 
 Verwendung:
   manager = OutputManager(db="aufnahme.db", csv="aufnahme.csv", gsi="aufnahme.gsi")

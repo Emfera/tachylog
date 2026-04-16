@@ -16,6 +16,7 @@ TS07 (GSI16) → Bluetooth SPP → BT/TCP Bridge → tachylog → CSV / SQLite /
 
 - Das **Instrument** behält die volle Kontrolle: PID eingeben, Messung auslösen
 - tachylog **lauscht** und speichert jeden empfangenen Messpunkt
+- **PID ist ein freier String** — tachylog erzwingt kein Format. Der Vermesser wählt am Gerät, ob er z.B. Gladiator (OT00010001), AS4QGIS (OT1001) oder eigene Bezeichner verwendet
 - Keine Stationierung, keine Auswertung — das ist Aufgabe der nachgelagerten Pipeline
 
 ---
@@ -24,13 +25,38 @@ TS07 (GSI16) → Bluetooth SPP → BT/TCP Bridge → tachylog → CSV / SQLite /
 
 | Format | Option | Verwendung |
 |---|---|---|
-| SQLite | `--db aufnahme.db` | Für weitere Verarbeitung, GeoPackage-Export |
+| SQLite | `--db aufnahme.db` | Für weitere Verarbeitung |
 | CSV | `--csv aufnahme.csv` | Emlid Flow kompatibel, Excel, QGIS |
 | GSI | `--gsi aufnahme.gsi` | Rohformat exakt wie vom Instrument |
 | GeoJSON | `--geojson aufnahme.geojson` | Web-GIS, QGIS, eigene Skripte |
-| GeoPackage | `tachylog build` | Aus SQLite, für QGIS (Punkte, Linien, Flächen) |
 
 Alle Formate können **gleichzeitig** aktiv sein.
+
+---
+
+## PID-Schemata (optional)
+
+Zur Gültigkeitsprüfung der PIDs im Feld können optionale Schema-Dateien geladen werden.
+Die Prüfung ist **nicht-blockierend** — unbekannte Codes erzeugen nur Warnungen, Messungen werden nie verworfen.
+
+Mitgelieferte Schemata:
+
+| Schema | Datei | Format |
+|---|---|---|
+| Gladiator_2 | `schemas/gladiator2.json` | CCSSSSNNNN (empfohlen am Gerät) |
+| ArchSurv4QGIS | `schemas/archsurv4qgis.json` | XXXXYZZ001 |
+| Frei | `schemas/free.json` | Alle PIDs erlaubt (Standard) |
+
+```bash
+# Mit Schema-Validierung
+tachylog collect --db aufnahme.db --schema schemas/gladiator2.json
+
+# Verfügbare Schemata anzeigen
+tachylog schemas
+
+# Post-hoc-Check einer bestehenden Datenbank
+tachylog validate aufnahme.db --schema schemas/gladiator2.json
+```
 
 ---
 
@@ -78,6 +104,9 @@ tachylog collect --port tcp://localhost:4444 \
   --csv aufnahme.csv \
   --gsi aufnahme.gsi \
   --geojson aufnahme.geojson
+
+# Mit PID-Schema-Validierung (Warnungen, nicht blockierend)
+tachylog collect --db aufnahme.db --schema schemas/gladiator2.json
 ```
 
 Ausgabe während der Aufnahme:
@@ -85,7 +114,6 @@ Ausgabe während der Aufnahme:
   tachylog — GSI Collector
   Port:  tcp://localhost:4444
   SQLite → aufnahme.db
-  CSV    → aufnahme.csv
 
   Bedienung: Alles am Instrument (TS07)
   PID eingeben + Messung auslösen → tachylog speichert automatisch
@@ -94,14 +122,8 @@ Ausgabe während der Aufnahme:
   Verbinde mit tcp://localhost:4444... ✓
   Warte auf Messungen...
 
-  [   1] LE01023      E=   11112.846  N=    7350.902  H=   54.191
-  [   2] LE01024      E=   11122.148  N=    7347.049  H=   54.179
-```
-
-### GeoPackage für QGIS bauen
-
-```bash
-tachylog build aufnahme.db ausgabe.gpkg
+  [   1] OT00010001   E=   11112.846  N=    7350.902  H=   54.191
+  [   2] OT00010002   E=   11122.148  N=    7347.049  H=   54.179
 ```
 
 ### CSV importieren (z.B. von GNSS-Rover)
@@ -135,8 +157,8 @@ tachylog info aufnahme.db
    → Punkte messen → sofort in alle Ausgaben geschrieben
 
 5. Export / Weiterverarbeitung
-   → CSV direkt in QGIS oder eigene Pipeline
-   → tachylog build → GeoPackage für QGIS
+   → CSV direkt in QGIS oder Emlid Flow
+   → SQLite für eigene Pipeline / Downstream-Tools
 ```
 
 ---

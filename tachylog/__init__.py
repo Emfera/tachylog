@@ -1,11 +1,13 @@
 """
-tachylog — Sensorunabhängige Vermessungs-Datenpipeline
-für archäologische Feldarbeit.
+tachylog — GSI-Datenlogger für Leica Flexline Totalstationen.
+
+Empfängt Messungen in Echtzeit via Bluetooth und speichert sie
+formatneutral als CSV, SQLite, GSI oder GeoJSON.
+PID ist ein freier String — kein Format wird erzwungen.
 
 Unterstützt:
-- Leica Totalstationen via GeoCOM (Bluetooth TCP-Bridge)
-- GNSS CSV-Import
-- GeoPackage (.gpkg) Export
+- Leica Totalstationen via GSI (Bluetooth/TCP-Bridge)
+- GNSS CSV-Import (Emlid Flow kompatibel)
 """
 
 __version__ = "1.0.0"
