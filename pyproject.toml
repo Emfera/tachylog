@@ -13,8 +13,6 @@ requires-python = ">=3.9"
 dependencies = [
     "pyserial>=3.5",
     "click>=8.0",
-    "fiona>=1.9",
-    "shapely>=2.0",
 ]
 
 [project.scripts]
