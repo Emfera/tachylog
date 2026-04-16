@@ -49,57 +49,81 @@ class GSIMeasurement:
     raw: str      # Rohstring für Debugging
 
 
+# GSI Unit-Code → Divisor (Wert / Divisor = Meter)
+# Quelle: Leica GSI-Referenz
+_GSI_UNIT_DIVISOR = {
+    0:  1.0,        # keine Nachkommastellen
+    1:  10.0,
+    2:  100.0,      # cm
+    3:  1000.0,     # mm  (GSI8 Standard)
+    4:  10000.0,
+    5:  100000.0,
+    6:  10000.0,    # 0.1mm (GSI16 Koordinaten, Unit 06)
+    7:  100000.0,
+    8:  100000.0,   # 0.01mm
+}
+
+
 def _parse_gsi_words(payload: str) -> dict:
     """
     Parst GSI-Wörter aus einem Payload-String.
 
-    Wörter sind durch Leerzeichen getrennt.
-    Jedes Wort: Prefix (Ziffern + Info) + Vorzeichen + Wert.
-    Index = erste 2 Ziffern des Prefix.
-
-    Gibt {index: wert_string} zurück.
+    Gibt {index: (unit_code, wert_string)} zurück.
+    Beispiel: '81.06+0000000012379987' → {81: (6, '+0000000012379987')}
     """
     words = {}
-    # * am Anfang entfernen (GSI-Zeilenstarter)
     payload = payload.lstrip('*').strip()
 
     for token in payload.split():
         if not token:
             continue
-        # Vorzeichen finden (+ oder - nach dem Prefix)
         pm = token.find('+')
         if pm == -1:
-            pm = token.find('-', 1)  # ab Position 1, um führendes - zu überspringen
+            pm = token.find('-', 1)
         if pm <= 0:
             continue
 
         prefix = token[:pm]
         value  = token[pm:]
 
-        # Erste 2 Ziffern des Prefix = Index
         digits = re.match(r'(\d+)', prefix)
         if not digits:
             continue
         index = int(digits.group(1)[:2])
-        words[index] = value
+
+        # Unit-Code aus Prefix extrahieren (letzte 2 Stellen nach dem Punkt)
+        # z.B. '81.06' → unit=6, '22.032' → unit=2, '31.06' → unit=6
+        unit_match = re.search(r'\.(\d{1,2})$', prefix)
+        unit = int(unit_match.group(1)) if unit_match else 3  # Default: mm
+
+        words[index] = (unit, value)
 
     return words
 
 
-def _gsi_to_float(value: str) -> Optional[float]:
+def _gsi_to_float(entry) -> Optional[float]:
     """
     Konvertiert einen GSI-Wert zu float in Meter.
 
-    GSI speichert Koordinaten mit implizit 3 Nachkommastellen (mm).
-    Beispiele:
-      '+0000000001986199' → 1986.199 m  (GSI16)
-      '+00123456'         →  123.456 m  (GSI8)
-      '-00001234'         →   -1.234 m
+    Akzeptiert entweder:
+      - (unit_code, value_str)  Tupel aus _parse_gsi_words
+      - value_str               String (Rückwärtskompatibilität, nimmt Unit 3=mm)
+
+    Beispiele (Unit 06 = /10000):
+      (6, '+0000000012379987') → 1237.9987 m
+    Beispiele (Unit 03 = /1000):
+      (3, '+0000000001986199') → 1986.199 m
     """
     try:
+        if isinstance(entry, tuple):
+            unit, value = entry
+        else:
+            unit, value = 3, entry  # Fallback: mm
+
+        divisor = _GSI_UNIT_DIVISOR.get(unit, 1000.0)
         sign = -1 if value.startswith('-') else 1
         raw = value.lstrip('+-').lstrip('0') or '0'
-        return sign * int(raw) / 1000.0
+        return sign * int(raw) / divisor
     except (ValueError, TypeError):
         return None
 
