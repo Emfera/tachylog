@@ -6,7 +6,7 @@ Architektur (aktives Polling):
   2. TS07 antwortet mit letztem Messsatz im GSI-Format
   3. tachylog liest alle verfügbaren Bytes
   4. GSI-Zeilen werden geparst und in alle aktiven Ausgaben geschrieben
-  5. Duplikat-Schutz: nur neue Messungen werden gespeichert
+  5. Duplikat-Schutz: identischer Raw-String = Polling-Wiederholung, wird übersprungen
   6. Optional: PID-Validierung gegen Schema (nur Warnungen, kein Abbruch)
 
 Das Instrument behält die volle Kontrolle:
@@ -195,6 +195,14 @@ def run_collector(
                 if measurement is None:
                     continue
 
+                # Timestamp des Eingangs setzen (vor Duplikat-Check)
+                measurement.received_at = time.time()
+
+                # Duplikat-Schutz: gleicher Raw-String = Gerät hat noch
+                # keine neue Messung, pollt nur die letzte nochmal.
+                # NICHT nach PID+Koordinaten filtern: Nachmessungen am
+                # selben Punkt (gleiche PID, gleiche Koordinaten) sind
+                # legitim und dürfen nicht verworfen werden.
                 key = measurement_key(measurement)
                 if key == last_key:
                     continue

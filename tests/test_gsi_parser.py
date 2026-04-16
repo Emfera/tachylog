@@ -58,15 +58,32 @@ class TestParseGsiResponse:
 
 
 class TestMeasurementKey:
-    def test_same_key(self):
+    def test_polling_repeat_is_duplicate(self):
+        """Gleicher Raw-String = Gerät hat keine neue Messung → Duplikat."""
         raw = "%R1P,0,0:0,110001+00FP1 81..00+00123456 82..00+00654321 83..00+00001234"
         m1 = parse_gsi_response(raw)
         m2 = parse_gsi_response(raw)
         assert measurement_key(m1) == measurement_key(m2)
 
-    def test_different_pid(self):
+    def test_different_pid_is_new(self):
         r1 = "%R1P,0,0:0,110001+00FP1 81..00+00123456 82..00+00654321 83..00+00001234"
         r2 = "%R1P,0,0:0,110001+00FP2 81..00+00123456 82..00+00654321 83..00+00001234"
         m1 = parse_gsi_response(r1)
         m2 = parse_gsi_response(r2)
         assert measurement_key(m1) != measurement_key(m2)
+
+    def test_same_pid_same_coords_is_new(self):
+        """Gleiche PID, gleiche Koordinaten — aber anderer Raw-String
+        (z.B. Leerzeichen, Sequenz) = neue Messung, darf nicht gedroppt werden."""
+        # Minimal unterschiedliche Raw-Strings (verschiedene Whitespace-Trenner)
+        r1 = "%R1P,0,0:0,110001+00FP1 81..00+00123456 82..00+00654321 83..00+00001234"
+        r2 = "%R1P,0,0:0,110001+00FP1  81..00+00123456 82..00+00654321 83..00+00001234"
+        m1 = parse_gsi_response(r1)
+        m2 = parse_gsi_response(r2)
+        assert measurement_key(m1) != measurement_key(m2)
+
+    def test_received_at_default(self):
+        """received_at ist 0.0 wenn vom Parser gesetzt (Collector setzt es später)."""
+        raw = "%R1P,0,0:0,110001+00FP1 81..00+00123456 82..00+00654321 83..00+00001234"
+        m = parse_gsi_response(raw)
+        assert m.received_at == 0.0

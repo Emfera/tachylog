@@ -42,11 +42,12 @@ from typing import Optional
 @dataclass
 class GSIMeasurement:
     """Eine geparste GSI-Messung vom TS07."""
-    pid: str      # Punktnummer / PID (opaker String, unverändert vom Instrument)
-    e: float      # Easting  (Rechtswert) in Meter
-    n: float      # Northing (Hochwert)   in Meter
-    h: float      # Height   (Höhe)       in Meter
-    raw: str      # Rohstring für Debugging und GSI-Archivierung
+    pid: str           # Punktnummer / PID (opaker String, unverändert vom Instrument)
+    e: float           # Easting  (Rechtswert) in Meter
+    n: float           # Northing (Hochwert)   in Meter
+    h: float           # Height   (Höhe)       in Meter
+    raw: str           # Rohstring für Debugging und GSI-Archivierung
+    received_at: float = 0.0  # Unix-Timestamp Eingangszeit (gesetzt vom Collector)
 
 
 # GSI Unit-Code → Divisor (Wert / Divisor = Meter)
@@ -202,7 +203,12 @@ def measurement_key(m: GSIMeasurement) -> str:
     """
     Eindeutiger Schlüssel für Duplikat-Erkennung.
 
-    Gleiche Messung = gleiche PID + gleiche Koordinaten (mm-Genauigkeit).
-    Verhindert wiederholtes Speichern der letzten Messung beim Polling.
+    Gleiche Messung = gleicher Raw-String vom Instrument.
+    Damit werden Polling-Wiederholungen (Gerät gibt letzte Messung nochmal
+    zurück) sicher erkannt, ohne legitime Nachmessungen am selben Punkt
+    zu verwerfen.
+
+    PID + Koordinaten allein wären nicht ausreichend: derselbe Punkt kann
+    mehrfach gemessen werden (Redundanzmessungen, Kontrollmessungen).
     """
-    return f"{m.pid}:{m.e:.3f}:{m.n:.3f}:{m.h:.3f}"
+    return m.raw
