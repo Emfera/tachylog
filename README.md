@@ -3,26 +3,10 @@
 **GSI-Datenlogger für Leica Flexline Totalstationen**
 
 > [!NOTE]
-> **Status: Proof of Concept – wird nicht weiterentwickelt** (Stand Oktober 2026)
->
-> tachylog war ein Vorläufer von **[OASP](https://github.com/Emfera/OASP)** (Open Archaeological Surveying Pipeline) und bleibt als Dokumentation der Versuche öffentlich. Der Code funktioniert wie beschrieben, wird aber nicht mehr gepflegt. Weiterentwickelt wird in [Emfera/OASP](https://github.com/Emfera/OASP); Experimente und Stand: [emfera.github.io/OASP](https://emfera.github.io/OASP/).
+> **Proof of Concept, wird nicht weiterentwickelt.** Weiterentwicklung in [Emfera/OASP](https://github.com/Emfera/OASP).
 
-## Einordnung
-
-Getestet wurde, ob ein Android-Handy die GSI-Ausgabe eines Leica TS07 über Bluetooth zuverlässig mitschreiben kann (Python-CLI unter Termux, Bluetooth über die App „BT/TCP Bridge“). Antwort: ja – aber die Einrichtung im Feld (zwei Apps, Termux, Bridge) war zu umständlich.
-
-**In OASP übernommen:**
-- Das Instrument behält die Kontrolle; der Logger hört nur zu (Auslösung am Tachymeter, wie bei Emlid Flow).
-- PID wird unverändert gespeichert; Codeprüfung nur als Warnung, nie als Verwerfen.
-- Rohdaten exakt wie vom Instrument (GSI) neben aufbereiteten Formaten.
-- EPSG-Code nur als Metadatum, keine Transformation.
-- Duplikat-Erkennung über die Rohzeile: Nachmessung am selben Punkt ist kein Duplikat.
-
-**Bewusst nicht übernommen:**
-- Termux + Bridge-App: ersetzt durch Web Serial im Browser (OASP Capture, Experiment C0) – keine Installation nötig.
-- Python-CLI im Feld; die Weiterverarbeitung liegt in OASP Review.
-
-**Bekannter Fehler, nicht mehr behoben:** Die EPSG-Codes sind in Code und Doku falsch beschriftet („31256 = M31, 31255 = M28, 31257 = M34“). Richtig ist: **31254 = GK M28, 31255 = GK M31, 31256 = GK M34** (31257–31259 sind die BMN-Varianten mit anderem Rechtswert-Offset). Der Standardwert 31256 ist also M34 (Ostösterreich), nicht M31. Da nur das Metadatum betroffen ist, nicht die Koordinaten, stimmen bestehende Messdaten; die EPSG-Angabe in alten Exporten bitte prüfen.
+> [!WARNING]
+> Die EPSG-Codes sind hier falsch beschriftet. Richtig: 31254 = GK M28, 31255 = GK M31, 31256 = GK M34. Der Standardwert 31256 ist also M34, nicht M31. Die Koordinaten sind nicht betroffen, nur die EPSG-Angabe in den Exporten.
 
 ---
 
